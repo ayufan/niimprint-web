@@ -1,0 +1,103 @@
+<html>
+<head>
+  <script src="client.js"></script>
+  <script src="cmds.js"></script>
+  <style>
+    .on_connected {
+    }
+    .disabled {
+    }
+  </style>
+</head>
+<body>
+  <p>
+    <button id="connect">Connect</button>
+    <button id="disconnect" class="on_connected">Disconnect</button>
+    <button id="get_rfid" class="on_connected">Get RFID</button>
+    <button id="get_heartbeat" class="on_connected">Get Heartbeat</button>
+    <button id="get_info" class="on_connected">Get INFO</button>
+    <button id="test_print" class="on_connected">Test Print</button>
+    <button id="clear_log">Clear Log</button>
+  </p>
+  <hr>
+  <p>
+    Device: <label id="device_name">Disconnected</label>
+  </p>
+  <hr>
+  <h3>Response:</h3>
+  <p>
+    <textarea id="content" cols="100" rows="10"></textarea>
+  </p>
+  <hr>
+  <h3>Log:</h3>
+  <p>
+    <textarea id="log" cols="100" rows="10"></textarea>
+  </p>
+  <script>
+    function set_content(data, id = 'content') {
+      log(data);
+      document.getElementById(id).textContent = to_string(data);
+    }
+    async function async_content(promise) {
+      promise
+        .then(data => set_content(data))
+        .catch(error => set_content(error));
+    }
+
+    function set_connected_class(is_connected) {
+      for (let el of document.getElementsByClassName("on_connected")) {
+        el.disabled = !is_connected;
+        if (!is_connected)
+          el.classList.add("disabled");
+        else
+          el.classList.remove("disabled");
+      }
+    }
+
+    set_connected_class(false);
+
+    document.getElementById('connect').addEventListener('click', async function() {
+      disconnect();
+
+      let promise = connect().then(bt => {
+        bt["device"].addEventListener('gattserverdisconnected', event => {
+          set_connected_class(false);
+          set_content('Disconnected', 'device_name');
+        }, { "once": true });
+
+        set_connected_class(true);
+        set_content(bt["device"].name, 'device_name');
+      });
+
+      return async_content(promise);
+    });
+    document.getElementById('disconnect').addEventListener('click', function() {
+      disconnect();
+    });
+    document.getElementById('get_rfid').addEventListener('click', async function() {
+      async_content(get_rfid());
+    });
+    document.getElementById('get_heartbeat').addEventListener('click', async function() {
+      async_content(get_heartbeat());
+    });
+    document.getElementById('get_info').addEventListener('click', async function() {
+      async_content(get_info());
+    });
+    document.getElementById('test_print').addEventListener('click', async function() {
+      const w = mm_to_px(15);
+      const h = mm_to_px(30);
+      const data = new Uint8Array(w*h);
+      for (let x = 0; x < w; x++) {
+        for (let y = 0; y < h; y++) {
+          data[y*w+x] = (Math.ceil(x/16) % 2) ^ (Math.ceil(y/16) % 2);
+        }
+      }
+
+      async_content(print_image(w, h, data));
+    });
+    document.getElementById('clear_log').addEventListener('click', async function() {
+      document.getElementById('log').textContent = '';
+    });
+  </script>
+</body>
+</html>
