@@ -22,7 +22,7 @@ const CMD_ALLOW_PRINT_CLEAR = 32; // 0x20
 const CMD_SET_DIMENSION = 19; // 0x13
 const CMD_SET_QUANTITY = 21; // 0x15
 const CMD_GET_PRINT_STATUS = 163; // 0xA3
-const CMD_IMAGE_SET = 131; // 0x83 // 0006 
+const CMD_IMAGE_SET = 131; // 0x83
 const CMD_IMAGE_CLEAR = 132;
 const CMD_IMAGE_DATA = 133; // 0x85
 const CMD_IMAGE_RECEIVED = 0xD3; // ushort offset, byte last line
@@ -163,13 +163,13 @@ async function niimbotSetLabelDimensions(w, h) {
   console.assert(1 <= w && w <= niimbotMmToPx(15));
   console.assert(1 <= h && h <= niimbotMmToPx(75));
   return niimbotTransceivePacket(CMD_SET_DIMENSION, [
-    Math.floor(h / 256), h % 256,
-    Math.floor(w / 256), w % 256
+    ...ushortToByteArray(h),
+    ...ushortToByteArray(w)
   ]).then(data => data[0]);
 }
 
 async function niimbotSetPrintQuality(n) {
-  return niimbotTransceivePacket(CMD_SET_QUANTITY, [Math.floor(n / 256), n % 256]).then(data => data[0]);
+  return niimbotTransceivePacket(CMD_SET_QUANTITY, ushortToByteArray(n)).then(data => data[0]);
 }
 
 async function niimbotGetPrintStatus(n) {
@@ -184,8 +184,7 @@ async function niimbotGetPrintStatus(n) {
 
 function niimbotPacketClear(y, n = 1) {
   let buffer = [];
-  buffer.push(Math.floor(y / 256));
-  buffer.push(y % 256);
+  buffer.push(...ushortToByteArray(y));
   buffer.push(n);
 
   return niimbotToPacket(CMD_IMAGE_CLEAR, buffer);
@@ -193,18 +192,32 @@ function niimbotPacketClear(y, n = 1) {
 
 function niimbotPacketImageData(y, w, data, n = 1) {
   let buffer = [];
-  buffer.push(Math.floor(y / 256));
-  buffer.push(y % 256);
+  buffer.push(...ushortToByteArray(y));
+
+  let indexes = [];
 
   // add a list of bytes count
   for (let x = 0; x < w; x += 32) {
-    let bits = 0;
+    const start_indexes = indexes.length;
     for (let b = 0; b < 32; b++)
       if (data[x + b])
-        bits++;
-    buffer.push(bits);
+        indexes.push(x + b);
+    buffer.push(indexes.length - start_indexes);
   }
   buffer.push(n);
+
+  if (indexes.length == 0) {
+    return niimbotPacketClear(y, n);
+  }
+
+  // for small buffers, prefer to send indexes instead of bitmaps
+  if (indexes.length*2 < w/8) {
+    for (const index of indexes) {
+      buffer.push(...ushortToByteArray(index));
+    }
+  
+    return niimbotToPacket(CMD_IMAGE_SET, buffer);
+  }
 
   // encode bool map to bits map
   for (let x = 0; x < w; x += 8) {
@@ -218,29 +231,31 @@ function niimbotPacketImageData(y, w, data, n = 1) {
   return niimbotToPacket(CMD_IMAGE_DATA, buffer);
 }
 
-async function niimbotSendImage(w, h, data, sliceSize = 200) {
+async function niimbotSendImage(w, h, imageData, sliceSize = 200) {
   let promise = Promise.resolve();
 
-  for (let slice_y = 0; slice_y < h; slice_y += sliceSize) {
-    const slice_h = Math.min(h, slice_y + sliceSize);
+  for (let ySlice = 0; ySlice < h; ySlice += sliceSize) {
+    const hSlice = Math.min(h, ySlice + sliceSize);
 
     let packet = [];
+    let yNext = ySlice;
+    var dataNext = imageData.slice(ySlice * w, (ySlice+1) * w);
+    var dataStringNext = dataNext.toString();
 
-    for (let y = slice_y; y < slice_h; ) {
-      const line_y = y;
-      lineData = data.slice(y * w, (y+1) * w);
+    while (yNext < hSlice) {
+      const y = yNext;
+      const data = dataNext;
+      const dataString = dataStringNext;
 
-      while (++y < slice_h) {
-        nextLineData = data.slice(y * w, (y+1) * w);
-        if (lineData.toString() != nextLineData.toString())
+      // find how many the same lines are being send
+      while (++yNext < hSlice) {
+        dataNext = imageData.slice(yNext * w, (yNext+1) * w);
+        dataStringNext = dataNext.toString();
+        if (dataString != dataStringNext)
           break;
       }
 
-      if (lineData.every(pixel => pixel == 0)) {
-        packet.push(...niimbotPacketClear(line_y, y - line_y));
-      } else {
-        packet.push(...niimbotPacketImageData(line_y, w, lineData, y - line_y));
-      }
+      packet.push(...niimbotPacketImageData(y, w, data, yNext - y));
     }
 
     promise = promise.then(_ => niimbotTransceiveRawData(packet, CMD_IMAGE_RECEIVED));

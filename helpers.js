@@ -48,3 +48,8 @@ function arrayToHexString(array, join='') {
 function intArrayToString(array) {
   return array.map(el => String.fromCharCode(el)).join('');
 }
+
+function ushortToByteArray(value) {
+  console.assert(0 <= value && value <= 65535);
+  return [Math.floor(value / 256), value % 256];
+}
