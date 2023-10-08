@@ -7,31 +7,32 @@ function toResponseString(data) {
     return JSON.stringify(data);
 }
 
-function log(data) {
-  console.log("LOG: " + toResponseString(data));
+function log(context, data) {
+  const line = context + ": " + toResponseString(data);
+  console.log(line);
 
   const logEl = document.getElementById('log');
   if (logEl) {
-    logEl.textContent += toResponseString(data) + "\n";
+    logEl.textContent += line + "\n";
     if (logEl.selectionStart == logEl.selectionEnd) {
       logEl.scrollTop = logEl.scrollHeight;
     }
   }
 }
 
-function setResponse(data, responseId = 'content') {
-  log(data);
+function setResponse(data, context = 'RESP') {
+  log(context, data);
 
-  const responseEl = document.getElementById(responseId);
+  const responseEl = document.getElementById('response');
   if (responseEl) {
     responseEl.textContent = toResponseString(data);
   }
 }
 
-async function setAsyncResponse(promise) {
+async function setAsyncResponse(promise, context = 'RESP') {
   promise
-    .then(data => setResponse(data))
-    .catch(error => setResponse(error));
+    .then(data => setResponse(data, context))
+    .catch(error => setResponse(error, context));
 }
 
 function byteArrayToArray(buffer) {

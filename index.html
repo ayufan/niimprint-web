@@ -31,7 +31,7 @@
   <hr>
   <h3>Response:</h3>
   <p>
-    <textarea id="content" cols="100" rows="10"></textarea>
+    <textarea id="response" cols="100" rows="10"></textarea>
   </p>
   <hr>
   <h3>
@@ -65,17 +65,22 @@
     <textarea id="log" cols="100" rows="10"></textarea>
   </p>
   <script>
-    function updateConnected(isConnected) {
+    function updateConnected(deviceName = null) {
       for (let el of document.getElementsByClassName("on_connected")) {
-        el.disabled = !isConnected;
-        if (!isConnected)
+        el.disabled = !deviceName;
+        if (!deviceName)
           el.classList.add("disabled");
         else
           el.classList.remove("disabled");
       }
+
+      const deviceNameEl = document.getElementById('device_name');
+      if (deviceNameEl) {
+        deviceNameEl.textContent = deviceName ? toResponseString(deviceName) : 'Disconnected';
+      }
     }
 
-    document.addEventListener("DOMContentLoaded", _ => updateConnected(false));
+    document.addEventListener("DOMContentLoaded", _ => updateConnected());
 
     function updateCanvasSize() {
       const [w_mm, h_mm] = document.getElementById('canvas_size').value.split('x');
@@ -96,27 +101,25 @@
 
       let promise = niimbotConnect().then(bt => {
         bt["device"].addEventListener('gattserverdisconnected', event => {
-          updateConnected(false);
-          setResponse('Disconnected', 'device_name');
+          updateConnected();
         }, { "once": true });
 
-        updateConnected(true);
-        setResponse(bt["device"].name, 'device_name');
-      });
+        updateConnected(bt["device"].name);
+      }).then(_ => niimbotGetRFID());
 
-      return setAsyncResponse(promise);
+      return setAsyncResponse(promise, "BT");
     });
     document.getElementById('disconnect').addEventListener('click', function() {
       niimbotDisconnect();
     });
     document.getElementById('get_rfid').addEventListener('click', async function() {
-      setAsyncResponse(niimbotGetRFID());
+      setAsyncResponse(niimbotGetRFID(), "RFID");
     });
     document.getElementById('get_heartbeat').addEventListener('click', async function() {
-      setAsyncResponse(niimbotGetHeartbeat());
+      setAsyncResponse(niimbotGetHeartbeat(), "HEARTBEAT");
     });
     document.getElementById('get_info').addEventListener('click', async function() {
-      setAsyncResponse(niimbotGetInfo());
+      setAsyncResponse(niimbotGetInfo(), "INFO");
     });
     document.getElementById('clear_canvas').addEventListener('click', function() {
       const canvas = document.getElementById('canvas');
@@ -168,7 +171,7 @@
 
       for (let y = 0; y < canvas.height; y++) {
         let line = canvasGetImageData(canvas, 0, y, canvas.width, 1);
-        log(`Y${y}: ${line.join('')}`);
+        log(`Y${y}`, line.join(''));
       }
     });
     document.getElementById('save_canvas').addEventListener('click', function() {
@@ -179,7 +182,7 @@
       const canvas = document.getElementById('canvas');
 
       let image_data = canvasGetImageData(canvas, 0, 0, canvas.width, canvas.height);
-      setAsyncResponse(niimbotPrintImage(canvas.width, canvas.height, image_data));
+      setAsyncResponse(niimbotPrintImage(canvas.width, canvas.height, image_data), "PRINT");
     });
     document.getElementById('clear_log').addEventListener('click', async function() {
       document.getElementById('log').textContent = '';

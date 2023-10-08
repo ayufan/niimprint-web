@@ -39,7 +39,7 @@ function niimbotPxToMM(x) {
 async function niimbotGetRFID() {
   return niimbotTransceivePacket(CMD_GET_RFID, [1]).then(data => {
     if (data[0] == 0)
-      return;
+      return { 'rfid': false };
 
     const uuid = data.splice(0, 8);
     const barcode = data.splice(0, data.shift());
@@ -50,6 +50,7 @@ async function niimbotGetRFID() {
     usedLen += data.shift();
     let type = data.shift();
     return {
+      'rfid': true,
       'uuid': arrayToHexString(uuid),
       'barcode': intArrayToString(barcode),
       'serial': intArrayToString(serial),
@@ -267,7 +268,7 @@ async function niimbotSendImage(w, h, imageData, sliceSize = 200) {
 async function niimbotWaitForPrintComplete(q) {
   return new Promise((resolve, reject) => {
     let process = function(status) {
-      log(status);
+      log("PRINT", status);
 
       if (status["page"] == q)
         return resolve();
@@ -282,7 +283,7 @@ async function niimbotWaitForPrintComplete(q) {
 }
 
 async function niimbotPrintImage(w, h, data, q = 1, type = 1, density = 2) {
-  log(`Printing image: ${w}x${h}, ${q}q, ${type} type, ${density} density`);
+  log("PRINT", `Printing image: ${w}x${h}, ${q}q, ${type} type, ${density} density`);
   return niimbotSetLabelType(type)
     .then(_ => niimbotSetLabelType(type)) // 1-3
     .then(_ => niimbotSetLabelDensity(density)) // 1-3

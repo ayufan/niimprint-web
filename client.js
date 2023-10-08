@@ -56,9 +56,9 @@ function niimbotFromPacket(packet) {
 
 async function niimbotReceivePacket() {
   return new Promise((resolve, reject) => {
-    log("RX: Waiting for recv.");
+    log("RX", "Waiting for recv.");
     bluetooth["rx"].addEventListener('characteristicvaluechanged', event => {
-      log("RX: " + byteArrayToArray(event.target.value));
+      log("RX", byteArrayToArray(event.target.value));
       resolve(niimbotFromPacket(event.target.value));
     }, { "once": true });
 
@@ -74,9 +74,9 @@ async function niimbotSendRawData(data, chunkSize = 150) {
   for (let i = 0; i < data.length; i += chunkSize) {
     const chunk = data.slice(i, i + chunkSize);
 
-    log("TX: Sending... " + chunk);
+    log("TX", "Sending... " + chunk);
     promise = promise.then(_ => bluetooth["tx"].writeValueWithoutResponse(new Uint8Array(chunk)))
-      .then(_ => log("TX: Sent."));
+      .then(_ => log("TX", "Sent."));
   }
 
   return promise;
@@ -105,65 +105,30 @@ async function niimbotTransceivePacket(type, data, recv_offset = 1) {
 }
 
 async function niimbotConnect() {
-  return await navigator.bluetooth.requestDevice(bluetoothOptions).then(device => {
-    log(`Name: ${device.name}`);
+  return navigator.bluetooth.requestDevice(bluetoothOptions).then(device => {
+    log("BT", `Device: ${device.name}`);
     bluetooth["device"] = device;
 
-    log('Connecting to GATT Server...');
+    log("BT", 'Connecting to GATT Server...');
     return device.gatt.connect();
   }).then(server => {
     bluetooth["gatt"] = server;
-
-    // Note that we could also get all services that match a specific UUID by
-    // passing it to getPrimaryServices().
-    log('Getting Services...');
-    let allServices = server.getPrimaryServices().then(services => {
-      log('Getting Characteristics...');
-      let queue = Promise.resolve();
-      services.forEach(service => {
-        queue = queue.then(_ => service.getCharacteristics().then(characteristics => {
-          log('> Service: ' + service.uuid);
-          characteristics.forEach(characteristic => {
-            log('>> Characteristic: ' + characteristic.uuid);
-          });
-        }).catch(error => {
-          log('Argh! ' + error);
-        }));
-      });
-    }).catch(error => {
-      log('Argh! ' + error);
-    });
-
-    log('Getting Uart Service...');
-    // let service = server.getPrimaryService(BLE_UART_UUID).then(service => {
-    //   var rx = service.getCharacteristic(BLE_UART_TX_CH_UUID).then(rx => {
-    //     bluetooth["rx"] = rx;
-    //     return tx.startNotifications();
-    //   });
-    //   var tx = service.getCharacteristic(BLE_UART_RX_CH_UUID).then(tx => {
-    //     bluetooth["tx"] = tx;
-    //   });
-    //   return Promise.all([tx, rx]);
-    // }).catch(error => {
-    //   log('Argh! ' + error);
-    // });
-
-    let service = server.getPrimaryService(BLE_THERM_UUID).then(service => {
-      return service.getCharacteristic(BLE_THERM_CH_UUID);
-    }).then(ch => {
-      bluetooth["tx"] = ch;
-      bluetooth["rx"] = ch;
-      return ch.startNotifications();
-    }).catch(error => {
-      log('Argh! ' + error);
-    });
-
-    return Promise.all([service, allServices]);
-  }).then(values => {
-    log("All done: " + values);
+    log("BT", `Getting the ${BLE_THERM_UUID}...`);
+    return server.getPrimaryService(BLE_THERM_UUID);
+  }).then(service => {
+    bluetooth["service"] = service;
+    log("BT", `Getting the ${BLE_THERM_CH_UUID}...`);
+    return service.getCharacteristic(BLE_THERM_CH_UUID);
+  }).then(ch => {
+    bluetooth["tx"] = ch;
+    bluetooth["rx"] = ch;
+    log("BT", `Listening for notifications...`);
+    return ch.startNotifications();
+  }).then(_ => {
+    log("BT", "All done!");
     return bluetooth;
   }).catch(error => {
-    log('Argh! ' + error);
+    log("BT", 'Argh! ' + error);
     bluetooth = {};
   });
 }
