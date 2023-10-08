@@ -182,16 +182,16 @@ async function get_print_status(n) {
   });
 }
 
-async function send_line_clear(y, n = 1) {
+function packet_line_clear(y, n = 1) {
   let buffer = [];
   buffer.push(Math.floor(y / 256));
   buffer.push(y % 256);
   buffer.push(n);
 
-  return send_packet(CMD_IMAGE_CLEAR, buffer).then(_ => new Promise(resolve => setTimeout(resolve, 20)));
+  return to_packet(CMD_IMAGE_CLEAR, buffer);
 }
 
-async function send_line_data(y, w, line_data, n = 1) {
+function packet_line_data(y, w, line_data, n = 1) {
   let buffer = [];
   buffer.push(Math.floor(y / 256));
   buffer.push(y % 256);
@@ -211,27 +211,37 @@ async function send_line_data(y, w, line_data, n = 1) {
     let bits = 0;
     for (let b = 0; b < 8; b++)
       if (line_data[x + b])
-        bits |= 1<<b;
+        bits |= 1<<(7-b);
     buffer.push(bits);
   }
 
-  return send_packet(CMD_IMAGE_DATA, buffer).then(_ => new Promise(resolve => setTimeout(resolve, 20)));
+  return to_packet(CMD_IMAGE_DATA, buffer);
 }
 
 async function send_image(w, h, data) {
-  let promise = Promise.resolve();
+  let packet = [];
 
-  for (let y = 0; y < h; y++) {
+  const max_n = 1; // 255;
+
+  for (let y = 0; y < h;) {
+    const line_y = y;
     line_data = data.slice(y * w, (y+1) * w);
 
+    // for ( ; y++ < h && y - line_y < max_n; ) {
+    //   next_line_data = data.slice(y * w, (y+1) * w);
+    //   if (line_data.toString() != next_line_data.toString())
+    //     break;
+    // }
+    y++;
+
     if (line_data.every(pixel => pixel == 0)) {
-      promise = promise.then(_ => send_line_clear(y));
+     packet.push(...packet_line_clear(line_y, y - line_y));
     } else {
-      promise = promise.then(_ => send_line_data(y, w, line_data));
+      packet.push(...packet_line_data(line_y, w, line_data, y - line_y));
     }
   }
 
-  return promise;
+  return send_rawdata(packet);
 }
 
 async function wait_for_quantity(q) {
