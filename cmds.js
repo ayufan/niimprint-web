@@ -9,20 +9,23 @@ const INFO_BATTERY = 10;
 const INFO_DEVICESERIAL = 11;
 const INFO_HARDVERSION = 12;
 
-const CMD_GET_INFO = 64;
-const CMD_GET_RFID = 26;
-const CMD_HEARTBEAT = 220;
-const CMD_SET_LABEL_TYPE = 35;
-const CMD_SET_LABEL_DENSITY = 33;
-const CMD_START_PRINT = 1;
-const CMD_END_PRINT = 243;
-const CMD_START_PAGE_PRINT = 3;
-const CMD_END_PAGE_PRINT = 227;
-const CMD_ALLOW_PRINT_CLEAR = 32;
-const CMD_SET_DIMENSION = 19;
-const CMD_SET_QUANTITY = 21;
-const CMD_GET_PRINT_STATUS = 163;
-const CMD_IMAGE_DATA = 133;
+const CMD_GET_INFO = 64; // 0x40
+const CMD_GET_RFID = 26; // 0x1A
+const CMD_HEARTBEAT = 220; // 0xDC
+const CMD_SET_LABEL_TYPE = 35; // 0x23
+const CMD_SET_LABEL_DENSITY = 33; // 0x21
+const CMD_START_PRINT = 1; // 0x01
+const CMD_END_PRINT = 243; // 0xF3
+const CMD_START_PAGE_PRINT = 3; // 0x03
+const CMD_END_PAGE_PRINT = 227; // 0xE3
+const CMD_ALLOW_PRINT_CLEAR = 32; // 0x20
+const CMD_SET_DIMENSION = 19; // 0x13
+const CMD_SET_QUANTITY = 21; // 0x15
+const CMD_GET_PRINT_STATUS = 163; // 0xA3
+const CMD_IMAGE_DATA3 = 131; // 0x83 // 0006 
+const CMD_IMAGE_DATA2 = 132; // 0x84? Resp. 0xD3, 153 bytes, 2191 = 143+8*256 // 0000 06
+const CMD_IMAGE_CLEAR = 132;
+const CMD_IMAGE_DATA = 133; // 0x85
 
 // Niimbot D11 has 203 DPI (https://www.niimbotlabel.com/products/niimbot-d11-label-maker)
 function mm_to_px(x) {
@@ -179,7 +182,16 @@ async function get_print_status(n) {
   });
 }
 
-async function send_line_data(y, w, line_data) {
+async function send_line_clear(y, n = 1) {
+  let buffer = [];
+  buffer.push(Math.floor(y / 256));
+  buffer.push(y % 256);
+  buffer.push(n);
+
+  return send_packet(CMD_IMAGE_CLEAR, buffer).then(_ => new Promise(resolve => setTimeout(resolve, 20)));
+}
+
+async function send_line_data(y, w, line_data, n = 1) {
   let buffer = [];
   buffer.push(Math.floor(y / 256));
   buffer.push(y % 256);
@@ -192,7 +204,7 @@ async function send_line_data(y, w, line_data) {
         bits++;
     buffer.push(bits);
   }
-  buffer.push(1);
+  buffer.push(n);
 
   // encode bool map to bits map
   for (let x = 0; x < w; x += 8) {
@@ -210,9 +222,13 @@ async function send_image(w, h, data) {
   let promise = Promise.resolve();
 
   for (let y = 0; y < h; y++) {
-    promise = promise.then(_ => {
-      return send_line_data(y, w, data.slice(y * w, (y+1) * w));
-    });
+    line_data = data.slice(y * w, (y+1) * w);
+
+    if (line_data.every(pixel => pixel == 0)) {
+      promise = promise.then(_ => send_line_clear(y));
+    } else {
+      promise = promise.then(_ => send_line_data(y, w, line_data));
+    }
   }
 
   return promise;

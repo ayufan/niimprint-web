@@ -68,11 +68,22 @@ async function receive_packet() {
   });
 }
 
+async function send_rawdata(data, chunkSize = 150) {
+  promise = Promise.resolve();
+
+  for (let i = 0; i < data.length; i += chunkSize) {
+    const chunk = data.slice(i, i + chunkSize);
+
+    log("TX: Sending... " + chunk);
+    promise = promise.then(_ => bluetooth["tx"].writeValueWithoutResponse(new Uint8Array(chunk)))
+      .then(_ => log("TX: Sent."));
+  }
+
+  return promise;
+}
+
 async function send_packet(type, data) {
-  const packet = to_packet(type, data);
-  log("TX: Sending... " + packet);
-  return bluetooth["tx"].writeValueWithoutResponse(new Uint8Array(packet))
-    .then(_ => log("TX: Sent."));
+  return send_rawdata(to_packet(type, data));
 }
 
 async function transceive_packet(type, data, recv_offset = 1) {

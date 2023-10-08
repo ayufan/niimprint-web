@@ -80,8 +80,8 @@
       const [w_mm, h_mm] = document.getElementById('canvas_size').value.split('x');
 
       const canvas = document.getElementById('canvas');
-      canvas.width = mm_to_px(parseInt(h_mm));
-      canvas.height = mm_to_px(parseInt(w_mm));
+      canvas.width = 96; // mm_to_px(parseInt(h_mm));
+      canvas.height = mm_to_px(parseInt(h_mm)); // 96; // mm_to_px(parseInt(w_mm));
 
       const canvas_label = document.getElementById('canvas_label');
       canvas_label.textContent = `${canvas.width}x${canvas.height}`;
@@ -144,29 +144,37 @@
 
       context.putImageData(image, 0, 0);
     });
-    document.getElementById('dump_canvas').addEventListener('click', function() {
-      const canvas = document.getElementById('canvas');
+    function get_image_data(canvas, x, y, w, h) {
+      let image_data = [];
+
       const context = canvas.getContext("2d");
-      const image = context.getImageData(0, 0, canvas.width, canvas.height);
+      const image = context.getImageData(x, y, w, h);
 
       var off = 0;
 
       for (let y = 0; y < image.height; y++) {
-        let line = [];
         for (let x = 0; x < image.width; x++, off += 4) {
           const gray = (image.data[off] + image.data[off+1] + image.data[off+2]) / 3;
           const alpha = (image.data[off+3]);
-          line.push(gray > 128 || alpha < 128 ? 1 : 0);
+          image_data.push(gray > 128 || alpha < 128 ? 0 : 1);
         }
+      }
+
+      return image_data;
+    }
+    document.getElementById('dump_canvas').addEventListener('click', function() {
+      const canvas = document.getElementById('canvas');
+
+      for (let y = 0; y < canvas.height; y++) {
+        let line = get_image_data(canvas, 0, y, canvas.width, 1);
         log(`Y${y}: ${line.join('')}`);
       }
     });
     document.getElementById('print').addEventListener('click', async function() {
       const canvas = document.getElementById('canvas');
-      const context = canvas.getContext("2d");
-      const image = context.getImageData(0, 0, canvas.width, canvas.height);
 
-      async_content(print_image(canvas.width, canvas.height, null));
+      let image_data = get_image_data(canvas, 0, 0, canvas.width, canvas.height);
+      async_content(print_image(canvas.width, canvas.height, image_data));
     });
     document.getElementById('clear_log').addEventListener('click', async function() {
       document.getElementById('log').textContent = '';
