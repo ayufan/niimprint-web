@@ -81,8 +81,8 @@ async function get_info_type(type) {
 
 async function get_info() {
   let sw = get_info_type(INFO_SOFTVERSION);
-  let hw = get_info_type(INFO_HARDVERSION);
-  let sn = get_info_type(INFO_DEVICESERIAL);
+  let hw = sw.then(_ => get_info_type(INFO_HARDVERSION));
+  let sn = hw.then(_ => get_info_type(INFO_DEVICESERIAL));
 
   return Promise.all([sw, hw, sn]).then(values => {
     return {
