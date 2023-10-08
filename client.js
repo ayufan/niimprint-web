@@ -69,32 +69,17 @@ async function receive_packet() {
 }
 
 async function send_rawdata(data, chunkSize = 150) {
-  if (false) {
-    promise = Promise.resolve();
+  promise = Promise.resolve();
 
-    for (let i = 0; i < data.length; i += chunkSize) {
-      const chunk = data.slice(i, i + chunkSize);
+  for (let i = 0; i < data.length; i += chunkSize) {
+    const chunk = data.slice(i, i + chunkSize);
 
-      // slightly delay chunks
-      if (i > 0) {
-        promise = promise.then(_ => new Promise(resolve => setTimeout(resolve, 100)));
-      }
-
-      log("TX: Sending... " + chunk);
-      promise = promise.then(_ => bluetooth["tx"].writeValueWithoutResponse(new Uint8Array(chunk)))
-        .then(_ => log("TX: Sent."));
-    }
-
-    return promise;
-  } else {
-    log("TX: Sending... " + data);
-    return bluetooth["tx"].writeValueWithoutResponse(new Uint8Array(data))
+    log("TX: Sending... " + chunk);
+    promise = promise.then(_ => bluetooth["tx"].writeValueWithoutResponse(new Uint8Array(chunk)))
       .then(_ => log("TX: Sent."));
   }
-}
 
-async function send_packet(type, data) {
-  return send_rawdata(to_packet(type, data));
+  return promise;
 }
 
 async function transceive_rawdata(data, respType, chunkSize = 150) {
@@ -116,7 +101,7 @@ async function transceive_rawdata(data, respType, chunkSize = 150) {
 }
 
 async function transceive_packet(type, data, recv_offset = 1) {
-  return transceive_rawdata(send_packet(type, data), type + recv_offset);
+  return transceive_rawdata(to_packet(type, data), type + recv_offset);
 }
 
 async function connect() {

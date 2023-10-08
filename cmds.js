@@ -25,7 +25,7 @@ const CMD_GET_PRINT_STATUS = 163; // 0xA3
 const CMD_IMAGE_SET = 131; // 0x83 // 0006 
 const CMD_IMAGE_CLEAR = 132;
 const CMD_IMAGE_DATA = 133; // 0x85
-// 0xD3?
+const CMD_IMAGE_RECEIVED = 0xD3; // ushort offset, byte last line
 
 // Niimbot D11 has 203 DPI (https://www.niimbotlabel.com/products/niimbot-d11-label-maker)
 function mm_to_px(x) {
@@ -218,34 +218,32 @@ function packet_line_data(y, w, line_data, n = 1) {
   return to_packet(CMD_IMAGE_DATA, buffer);
 }
 
-async function send_image(w, h, data) {
-  let packet = [];
+async function send_image(w, h, data, sliceSize = 200) {
+  let promise = Promise.resolve();
 
-  const max_n = 255;
+  for (let slice_y = 0; slice_y < h; slice_y += sliceSize) {
+    const slice_h = Math.min(h, slice_y + sliceSize);
 
-  var promise = Promise.resolve();
+    let packet = [];
 
-  for (let y = 0; y < h;) {
-    const line_y = y;
-    line_data = data.slice(y * w, (y+1) * w);
+    for (let y = slice_y; y < slice_h; ) {
+      const line_y = y;
+      line_data = data.slice(y * w, (y+1) * w);
 
-    for ( ; y++ < h && y - line_y < max_n; ) {
-      next_line_data = data.slice(y * w, (y+1) * w);
-      if (line_data.toString() != next_line_data.toString())
-        break;
+      while (++y < slice_h) {
+        next_line_data = data.slice(y * w, (y+1) * w);
+        if (line_data.toString() != next_line_data.toString())
+          break;
+      }
+
+      if (line_data.every(pixel => pixel == 0)) {
+        packet.push(...packet_line_clear(line_y, y - line_y));
+      } else {
+        packet.push(...packet_line_data(line_y, w, line_data, y - line_y));
+      }
     }
 
-    if (line_data.every(pixel => pixel == 0)) {
-      packet.push(...packet_line_clear(line_y, y - line_y));
-    } else {
-      packet.push(...packet_line_data(line_y, w, line_data, y - line_y));
-    }
-
-    if (packet.length > 150 || line_y == y) {
-      const rawpacket = packet;
-      promise = promise.then(_ => send_rawdata(rawpacket));
-      packet = [];
-    }
+    promise = promise.then(_ => transceive_rawdata(packet, CMD_IMAGE_RECEIVED));
   }
 
   return promise;
