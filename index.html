@@ -54,6 +54,7 @@
     <button id="clear_canvas">Clear</button>
     <button id="draw_pattern">Pattern</button>
     <button id="dump_canvas">Dump</button>
+    <button id="save_canvas">Save</button>
   </h3>
   <p>
     <canvas id="canvas" width="0" height="0" class="canvas"></canvas>
@@ -170,6 +171,10 @@
         log(`Y${y}: ${line.join('')}`);
       }
     });
+    document.getElementById('save_canvas').addEventListener('click', function() {
+      const canvas = document.getElementById('canvas');
+      localStorage.setItem("canvas", canvas.toDataURL());
+    });
     document.getElementById('print').addEventListener('click', async function() {
       const canvas = document.getElementById('canvas');
 
@@ -178,6 +183,25 @@
     });
     document.getElementById('clear_log').addEventListener('click', async function() {
       document.getElementById('log').textContent = '';
+    });
+
+    document.addEventListener("DOMContentLoaded", _ => {
+      var dataURL = localStorage.getItem("canvas");
+      if (!dataURL)
+        return;
+
+      var img = new Image;
+      img.src = dataURL;
+      img.onload = function () {
+        const canvas = document.getElementById('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const context = canvas.getContext("2d");
+        context.drawImage(img, 0, 0);
+
+        const canvas_label = document.getElementById('canvas_label');
+        canvas_label.textContent = `${canvas.width}x${canvas.height}`;
+      }
     });
   </script>
 </body>

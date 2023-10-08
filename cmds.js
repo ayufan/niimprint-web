@@ -22,10 +22,10 @@ const CMD_ALLOW_PRINT_CLEAR = 32; // 0x20
 const CMD_SET_DIMENSION = 19; // 0x13
 const CMD_SET_QUANTITY = 21; // 0x15
 const CMD_GET_PRINT_STATUS = 163; // 0xA3
-const CMD_IMAGE_DATA3 = 131; // 0x83 // 0006 
-const CMD_IMAGE_DATA2 = 132; // 0x84? Resp. 0xD3, 153 bytes, 2191 = 143+8*256 // 0000 06
+const CMD_IMAGE_SET = 131; // 0x83 // 0006 
 const CMD_IMAGE_CLEAR = 132;
 const CMD_IMAGE_DATA = 133; // 0x85
+// 0xD3?
 
 // Niimbot D11 has 203 DPI (https://www.niimbotlabel.com/products/niimbot-d11-label-maker)
 function mm_to_px(x) {
@@ -163,13 +163,13 @@ async function set_dimension(w, h) {
   console.assert(1 <= w && w <= mm_to_px(15));
   console.assert(1 <= h && h <= mm_to_px(75));
   return transceive_packet(CMD_SET_DIMENSION, [
-    Math.floor(w / 256), w % 256,
-    Math.floor(h / 256), h % 256
+    Math.floor(h / 256), h % 256,
+    Math.floor(w / 256), w % 256
   ]).then(data => data[0]);
 }
 
 async function set_quantity(n) {
-  return transceive_packet(CMD_SET_DIMENSION, [Math.floor(n / 256), n % 256]).then(data => data[0]);
+  return transceive_packet(CMD_SET_QUANTITY, [Math.floor(n / 256), n % 256]).then(data => data[0]);
 }
 
 async function get_print_status(n) {
@@ -221,27 +221,34 @@ function packet_line_data(y, w, line_data, n = 1) {
 async function send_image(w, h, data) {
   let packet = [];
 
-  const max_n = 1; // 255;
+  const max_n = 255;
+
+  var promise = Promise.resolve();
 
   for (let y = 0; y < h;) {
     const line_y = y;
     line_data = data.slice(y * w, (y+1) * w);
 
-    // for ( ; y++ < h && y - line_y < max_n; ) {
-    //   next_line_data = data.slice(y * w, (y+1) * w);
-    //   if (line_data.toString() != next_line_data.toString())
-    //     break;
-    // }
-    y++;
+    for ( ; y++ < h && y - line_y < max_n; ) {
+      next_line_data = data.slice(y * w, (y+1) * w);
+      if (line_data.toString() != next_line_data.toString())
+        break;
+    }
 
     if (line_data.every(pixel => pixel == 0)) {
-     packet.push(...packet_line_clear(line_y, y - line_y));
+      packet.push(...packet_line_clear(line_y, y - line_y));
     } else {
       packet.push(...packet_line_data(line_y, w, line_data, y - line_y));
     }
+
+    if (packet.length > 150 || line_y == y) {
+      const rawpacket = packet;
+      promise = promise.then(_ => send_rawdata(rawpacket));
+      packet = [];
+    }
   }
 
-  return send_rawdata(packet);
+  return promise;
 }
 
 async function wait_for_quantity(q) {

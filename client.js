@@ -69,40 +69,56 @@ async function receive_packet() {
 }
 
 async function send_rawdata(data, chunkSize = 150) {
-  promise = Promise.resolve();
+  if (false) {
+    promise = Promise.resolve();
 
-  for (let i = 0; i < data.length; i += chunkSize) {
-    const chunk = data.slice(i, i + chunkSize);
+    for (let i = 0; i < data.length; i += chunkSize) {
+      const chunk = data.slice(i, i + chunkSize);
 
-    log("TX: Sending... " + chunk);
-    promise = promise.then(_ => bluetooth["tx"].writeValueWithoutResponse(new Uint8Array(chunk)))
+      // slightly delay chunks
+      if (i > 0) {
+        promise = promise.then(_ => new Promise(resolve => setTimeout(resolve, 100)));
+      }
+
+      log("TX: Sending... " + chunk);
+      promise = promise.then(_ => bluetooth["tx"].writeValueWithoutResponse(new Uint8Array(chunk)))
+        .then(_ => log("TX: Sent."));
+    }
+
+    return promise;
+  } else {
+    log("TX: Sending... " + data);
+    return bluetooth["tx"].writeValueWithoutResponse(new Uint8Array(data))
       .then(_ => log("TX: Sent."));
   }
-
-  return promise;
 }
 
 async function send_packet(type, data) {
   return send_rawdata(to_packet(type, data));
 }
 
-async function transceive_packet(type, data, recv_offset = 1) {
+async function transceive_rawdata(data, respType, chunkSize = 150) {
   let process = function([recv_type, recv_data]) {
     if (recv_type == 219)
       throw "error";
     else if (recv_type == 0)
       throw "not implemented";
-    else if (recv_type == type + recv_offset)
+    else if (recv_type == respType)
       return recv_data;
     else
       return receive_packet().then(process);
   };
 
   let recv = receive_packet().then(process);
-  let send = send_packet(type, data);
+  let send = send_rawdata(data, chunkSize);
 
   return Promise.all([send, recv]).then(values => values[1]);
 }
+
+async function transceive_packet(type, data, recv_offset = 1) {
+  return transceive_rawdata(send_packet(type, data), type + recv_offset);
+}
+
 async function connect() {
   return await navigator.bluetooth.requestDevice(options).then(device => {
     log(`Name: ${device.name}`);
