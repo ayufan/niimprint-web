@@ -65,58 +65,58 @@
     <textarea id="log" cols="100" rows="10"></textarea>
   </p>
   <script>
-    function set_connected_class(is_connected) {
+    function updateConnected(isConnected) {
       for (let el of document.getElementsByClassName("on_connected")) {
-        el.disabled = !is_connected;
-        if (!is_connected)
+        el.disabled = !isConnected;
+        if (!isConnected)
           el.classList.add("disabled");
         else
           el.classList.remove("disabled");
       }
     }
 
-    document.addEventListener("DOMContentLoaded", _ => set_connected_class(false));
+    document.addEventListener("DOMContentLoaded", _ => updateConnected(false));
 
-    function set_canvas_size() {
+    function updateCanvasSize() {
       const [w_mm, h_mm] = document.getElementById('canvas_size').value.split('x');
 
       const canvas = document.getElementById('canvas');
-      canvas.width = 96; // mm_to_px(parseInt(h_mm));
-      canvas.height = mm_to_px(parseInt(h_mm)); // 96; // mm_to_px(parseInt(w_mm));
+      canvas.width = 96; // niimbotMmToPx(parseInt(h_mm));
+      canvas.height = niimbotMmToPx(parseInt(h_mm)); // 96; // niimbotMmToPx(parseInt(w_mm));
 
       const canvas_label = document.getElementById('canvas_label');
       canvas_label.textContent = `${canvas.width}x${canvas.height}`;
     }
 
-    document.addEventListener("DOMContentLoaded", set_canvas_size);
-    document.getElementById('canvas_size').addEventListener("change", set_canvas_size);
+    document.addEventListener("DOMContentLoaded", updateCanvasSize);
+    document.getElementById('canvas_size').addEventListener("change", updateCanvasSize);
 
     document.getElementById('connect').addEventListener('click', async function() {
-      disconnect();
+      niimbotDisconnect();
 
-      let promise = connect().then(bt => {
+      let promise = niimbotConnect().then(bt => {
         bt["device"].addEventListener('gattserverdisconnected', event => {
-          set_connected_class(false);
-          set_content('Disconnected', 'device_name');
+          updateConnected(false);
+          setResponse('Disconnected', 'device_name');
         }, { "once": true });
 
-        set_connected_class(true);
-        set_content(bt["device"].name, 'device_name');
+        updateConnected(true);
+        setResponse(bt["device"].name, 'device_name');
       });
 
-      return async_content(promise);
+      return setAsyncResponse(promise);
     });
     document.getElementById('disconnect').addEventListener('click', function() {
-      disconnect();
+      niimbotDisconnect();
     });
     document.getElementById('get_rfid').addEventListener('click', async function() {
-      async_content(get_rfid());
+      setAsyncResponse(niimbotGetRFID());
     });
     document.getElementById('get_heartbeat').addEventListener('click', async function() {
-      async_content(get_heartbeat());
+      setAsyncResponse(niimbotGetHeartbeat());
     });
     document.getElementById('get_info').addEventListener('click', async function() {
-      async_content(get_info());
+      setAsyncResponse(niimbotGetInfo());
     });
     document.getElementById('clear_canvas').addEventListener('click', function() {
       const canvas = document.getElementById('canvas');
@@ -145,7 +145,7 @@
 
       context.putImageData(image, 0, 0);
     });
-    function get_image_data(canvas, x, y, w, h) {
+    function canvasGetImageData(canvas, x, y, w, h) {
       let image_data = [];
 
       const context = canvas.getContext("2d");
@@ -167,7 +167,7 @@
       const canvas = document.getElementById('canvas');
 
       for (let y = 0; y < canvas.height; y++) {
-        let line = get_image_data(canvas, 0, y, canvas.width, 1);
+        let line = canvasGetImageData(canvas, 0, y, canvas.width, 1);
         log(`Y${y}: ${line.join('')}`);
       }
     });
@@ -178,8 +178,8 @@
     document.getElementById('print').addEventListener('click', async function() {
       const canvas = document.getElementById('canvas');
 
-      let image_data = get_image_data(canvas, 0, 0, canvas.width, canvas.height);
-      async_content(print_image(canvas.width, canvas.height, image_data));
+      let image_data = canvasGetImageData(canvas, 0, 0, canvas.width, canvas.height);
+      setAsyncResponse(niimbotPrintImage(canvas.width, canvas.height, image_data));
     });
     document.getElementById('clear_log').addEventListener('click', async function() {
       document.getElementById('log').textContent = '';

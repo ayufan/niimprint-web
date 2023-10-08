@@ -28,43 +28,43 @@ const CMD_IMAGE_DATA = 133; // 0x85
 const CMD_IMAGE_RECEIVED = 0xD3; // ushort offset, byte last line
 
 // Niimbot D11 has 203 DPI (https://www.niimbotlabel.com/products/niimbot-d11-label-maker)
-function mm_to_px(x) {
+function niimbotMmToPx(x) {
     return Math.ceil(x / 25.4 * 203);
 }
 
-function px_to_mm(x) {
+function niimbotPxToMM(x) {
   return Math.floor(x / 203 * 25.4);
 }
 
-async function get_rfid() {
-  return transceive_packet(CMD_GET_RFID, [1]).then(data => {
+async function niimbotGetRFID() {
+  return niimbotTransceivePacket(CMD_GET_RFID, [1]).then(data => {
     if (data[0] == 0)
       return;
 
     const uuid = data.splice(0, 8);
     const barcode = data.splice(0, data.shift());
     const serial = data.splice(0, data.shift());
-    let total_len = data.shift() * 256;
-    total_len += data.shift();
-    let used_len = data.shift() * 256;
-    used_len += data.shift();
+    let totalLen = data.shift() * 256;
+    totalLen += data.shift();
+    let usedLen = data.shift() * 256;
+    usedLen += data.shift();
     let type = data.shift();
     return {
-      'uuid': buffer_to_hex(uuid),
-      'barcode': buffer_to_string(barcode),
-      'serial': buffer_to_string(serial),
-      'total_len': total_len,
-      'used_len': used_len,
+      'uuid': arrayToHexString(uuid),
+      'barcode': intArrayToString(barcode),
+      'serial': intArrayToString(serial),
+      'total_len': totalLen,
+      'used_len': usedLen,
       'type': type
     };
   });
 }
 
-async function get_info_type(type) {
-  return transceive_packet(CMD_GET_INFO, [type], type).then(data => {
+async function niimbotGetInfoForType(type) {
+  return niimbotTransceivePacket(CMD_GET_INFO, [type], type).then(data => {
     switch (type) {
     case INFO_DEVICESERIAL:
-      return buffer_to_hex(data);
+      return arrayToHexString(data);
 
     // case InfoEnum.SOFTVERSION:
     //     return _packet_to_int(packet) / 100
@@ -74,15 +74,15 @@ async function get_info_type(type) {
     //     return _packet_to_int(packet)
 
     default:
-      return buffer_to_hex(data);
+      return arrayToHexString(data);
     }
   });
 }
 
-async function get_info() {
-  let sw = get_info_type(INFO_SOFTVERSION);
-  let hw = sw.then(_ => get_info_type(INFO_HARDVERSION));
-  let sn = hw.then(_ => get_info_type(INFO_DEVICESERIAL));
+async function niimbotGetInfo() {
+  let sw = niimbotGetInfoForType(INFO_SOFTVERSION);
+  let hw = sw.then(_ => niimbotGetInfoForType(INFO_HARDVERSION));
+  let sn = hw.then(_ => niimbotGetInfoForType(INFO_DEVICESERIAL));
 
   return Promise.all([sw, hw, sn]).then(values => {
     return {
@@ -93,8 +93,8 @@ async function get_info() {
   });
 }
 
-async function get_heartbeat() {
-  return transceive_packet(CMD_HEARTBEAT, [1]).then(data => {
+async function niimbotGetHeartbeat() {
+  return niimbotTransceivePacket(CMD_HEARTBEAT, [1]).then(data => {
     switch (data.length) {
       case 20:
         return {
@@ -129,51 +129,51 @@ async function get_heartbeat() {
   });
 }
 
-async function set_label_type(n) {
+async function niimbotSetLabelType(n) {
   console.assert(1 <= n && n <= 3);
-  return transceive_packet(CMD_SET_LABEL_TYPE, [n], 16).then(data => data[0]);
+  return niimbotTransceivePacket(CMD_SET_LABEL_TYPE, [n], 16).then(data => data[0]);
 }
 
-async function set_label_density(n) {
+async function niimbotSetLabelDensity(n) {
   console.assert(1 <= n && n <= 3);
-  return transceive_packet(CMD_SET_LABEL_DENSITY, [n], 16).then(data => data[0]);
+  return niimbotTransceivePacket(CMD_SET_LABEL_DENSITY, [n], 16).then(data => data[0]);
 }
 
-async function start_print() {
-  return transceive_packet(CMD_START_PRINT, [1]).then(data => data[0]);
+async function niimbotStartPrint() {
+  return niimbotTransceivePacket(CMD_START_PRINT, [1]).then(data => data[0]);
 }
 
-async function end_print() {
-  return transceive_packet(CMD_END_PRINT, [1]).then(data => data[0]);
+async function niimbotEndPrint() {
+  return niimbotTransceivePacket(CMD_END_PRINT, [1]).then(data => data[0]);
 }
 
-async function start_page_print() {
-  return transceive_packet(CMD_START_PAGE_PRINT, [1]).then(data => data[0]);
+async function niimbotStartPagePrint() {
+  return niimbotTransceivePacket(CMD_START_PAGE_PRINT, [1]).then(data => data[0]);
 }
 
-async function end_page_print() {
-  return transceive_packet(CMD_END_PAGE_PRINT, [1]).then(data => data[0]);
+async function niimbotEndPagePrint() {
+  return niimbotTransceivePacket(CMD_END_PAGE_PRINT, [1]).then(data => data[0]);
 }
 
-async function allow_print_clear() {
-  return transceive_packet(CMD_ALLOW_PRINT_CLEAR, [1], 16).then(data => data[0]);
+async function niimbotAllowPrintClear() {
+  return niimbotTransceivePacket(CMD_ALLOW_PRINT_CLEAR, [1], 16).then(data => data[0]);
 }
 
-async function set_dimension(w, h) {
-  console.assert(1 <= w && w <= mm_to_px(15));
-  console.assert(1 <= h && h <= mm_to_px(75));
-  return transceive_packet(CMD_SET_DIMENSION, [
+async function niimbotSetLabelDimensions(w, h) {
+  console.assert(1 <= w && w <= niimbotMmToPx(15));
+  console.assert(1 <= h && h <= niimbotMmToPx(75));
+  return niimbotTransceivePacket(CMD_SET_DIMENSION, [
     Math.floor(h / 256), h % 256,
     Math.floor(w / 256), w % 256
   ]).then(data => data[0]);
 }
 
-async function set_quantity(n) {
-  return transceive_packet(CMD_SET_QUANTITY, [Math.floor(n / 256), n % 256]).then(data => data[0]);
+async function niimbotSetPrintQuality(n) {
+  return niimbotTransceivePacket(CMD_SET_QUANTITY, [Math.floor(n / 256), n % 256]).then(data => data[0]);
 }
 
-async function get_print_status(n) {
-  return transceive_packet(CMD_GET_PRINT_STATUS, [1], 16).then(data => {
+async function niimbotGetPrintStatus(n) {
+  return niimbotTransceivePacket(CMD_GET_PRINT_STATUS, [1], 16).then(data => {
     return {
       "page": data[0] * 256 + data[1],
       "progress1": data[2],
@@ -182,16 +182,16 @@ async function get_print_status(n) {
   });
 }
 
-function packet_line_clear(y, n = 1) {
+function niimbotPacketClear(y, n = 1) {
   let buffer = [];
   buffer.push(Math.floor(y / 256));
   buffer.push(y % 256);
   buffer.push(n);
 
-  return to_packet(CMD_IMAGE_CLEAR, buffer);
+  return niimbotToPacket(CMD_IMAGE_CLEAR, buffer);
 }
 
-function packet_line_data(y, w, line_data, n = 1) {
+function niimbotPacketImageData(y, w, data, n = 1) {
   let buffer = [];
   buffer.push(Math.floor(y / 256));
   buffer.push(y % 256);
@@ -200,7 +200,7 @@ function packet_line_data(y, w, line_data, n = 1) {
   for (let x = 0; x < w; x += 32) {
     let bits = 0;
     for (let b = 0; b < 32; b++)
-      if (line_data[x + b])
+      if (data[x + b])
         bits++;
     buffer.push(bits);
   }
@@ -210,15 +210,15 @@ function packet_line_data(y, w, line_data, n = 1) {
   for (let x = 0; x < w; x += 8) {
     let bits = 0;
     for (let b = 0; b < 8; b++)
-      if (line_data[x + b])
+      if (data[x + b])
         bits |= 1<<(7-b);
     buffer.push(bits);
   }
 
-  return to_packet(CMD_IMAGE_DATA, buffer);
+  return niimbotToPacket(CMD_IMAGE_DATA, buffer);
 }
 
-async function send_image(w, h, data, sliceSize = 200) {
+async function niimbotSendImage(w, h, data, sliceSize = 200) {
   let promise = Promise.resolve();
 
   for (let slice_y = 0; slice_y < h; slice_y += sliceSize) {
@@ -228,57 +228,57 @@ async function send_image(w, h, data, sliceSize = 200) {
 
     for (let y = slice_y; y < slice_h; ) {
       const line_y = y;
-      line_data = data.slice(y * w, (y+1) * w);
+      lineData = data.slice(y * w, (y+1) * w);
 
       while (++y < slice_h) {
-        next_line_data = data.slice(y * w, (y+1) * w);
-        if (line_data.toString() != next_line_data.toString())
+        nextLineData = data.slice(y * w, (y+1) * w);
+        if (lineData.toString() != nextLineData.toString())
           break;
       }
 
-      if (line_data.every(pixel => pixel == 0)) {
-        packet.push(...packet_line_clear(line_y, y - line_y));
+      if (lineData.every(pixel => pixel == 0)) {
+        packet.push(...niimbotPacketClear(line_y, y - line_y));
       } else {
-        packet.push(...packet_line_data(line_y, w, line_data, y - line_y));
+        packet.push(...niimbotPacketImageData(line_y, w, lineData, y - line_y));
       }
     }
 
-    promise = promise.then(_ => transceive_rawdata(packet, CMD_IMAGE_RECEIVED));
+    promise = promise.then(_ => niimbotTransceiveRawData(packet, CMD_IMAGE_RECEIVED));
   }
 
   return promise;
 }
 
-async function wait_for_quantity(q) {
+async function niimbotWaitForPrintComplete(q) {
   return new Promise((resolve, reject) => {
     let process = function(status) {
+      log(status);
+
       if (status["page"] == q)
         return resolve();
 
-      log(status);
-
       setTimeout(function() {
-        get_print_status().then(process);
+        niimbotGetPrintStatus().then(process);
       }, 0.1);
     };
 
-    get_print_status().then(process);
+    niimbotGetPrintStatus().then(process);
   });
 }
 
-async function print_image(w, h, data, q = 1, type = 1, density = 2) {
+async function niimbotPrintImage(w, h, data, q = 1, type = 1, density = 2) {
   log(`Printing image: ${w}x${h}, ${q}q, ${type} type, ${density} density`);
-  return set_label_type(type)
-    .then(_ => set_label_type(type)) // 1-3
-    .then(_ => set_label_density(density)) // 1-3
-    .then(_ => start_print())
-    .then(_ => allow_print_clear())
-    .then(_ => start_page_print())
-    .then(_ => set_dimension(w, h))
-    .then(_ => set_quantity(q))
-    .then(_ => send_image(w, h, data))
-    .then(_ => end_page_print())
-    .then(_ => wait_for_quantity(q))
-    .then(_ => end_print())
+  return niimbotSetLabelType(type)
+    .then(_ => niimbotSetLabelType(type)) // 1-3
+    .then(_ => niimbotSetLabelDensity(density)) // 1-3
+    .then(_ => niimbotStartPrint())
+    .then(_ => niimbotAllowPrintClear())
+    .then(_ => niimbotStartPagePrint())
+    .then(_ => niimbotSetLabelDimensions(w, h))
+    .then(_ => niimbotSetPrintQuality(q))
+    .then(_ => niimbotSendImage(w, h, data))
+    .then(_ => niimbotEndPagePrint())
+    .then(_ => niimbotWaitForPrintComplete(q))
+    .then(_ => niimbotEndPrint())
     .then(_ => `Printed ${w}x${h}, ${q}q, ${type} type, ${density} density`);
 }

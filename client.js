@@ -5,7 +5,7 @@ const BLE_UART_RX_CH_UUID = "49535343-8841-43f4-a8d4-ecbe34729bb3";
 const BLE_THERM_UUID = "e7810a71-73ae-499d-8c15-faa9aef0c3f2";
 const BLE_THERM_CH_UUID = "bef8d6c9-9c21-4c9e-b632-bd58c1009f9f";
 
-let options = {
+let bluetoothOptions = {
   filters: [
     { namePrefix: "D" },
     // { services: [BLE_UART_UUID] },
@@ -15,7 +15,7 @@ let options = {
 
 var bluetooth = {};
 
-function to_packet(type, data) {
+function niimbotToPacket(type, data) {
   let packet = [type, data.length].concat(data);
 
   checksum = 0;
@@ -33,8 +33,8 @@ function to_packet(type, data) {
   return packet;
 }
 
-function from_packet(packet) {
-  packet = buffer_to_array(packet);
+function niimbotFromPacket(packet) {
+  packet = byteArrayToArray(packet);
 
   if (packet.shift() != 0x55 || packet.shift() != 0x55)
     return [];
@@ -54,12 +54,12 @@ function from_packet(packet) {
   return [type, packet];
 }
 
-async function receive_packet() {
+async function niimbotReceivePacket() {
   return new Promise((resolve, reject) => {
     log("RX: Waiting for recv.");
     bluetooth["rx"].addEventListener('characteristicvaluechanged', event => {
-      log("RX: " + buffer_to_array(event.target.value));
-      resolve(from_packet(event.target.value));
+      log("RX: " + byteArrayToArray(event.target.value));
+      resolve(niimbotFromPacket(event.target.value));
     }, { "once": true });
 
     setTimeout(() => {
@@ -68,7 +68,7 @@ async function receive_packet() {
   });
 }
 
-async function send_rawdata(data, chunkSize = 150) {
+async function niimbotSendRawData(data, chunkSize = 150) {
   promise = Promise.resolve();
 
   for (let i = 0; i < data.length; i += chunkSize) {
@@ -82,30 +82,30 @@ async function send_rawdata(data, chunkSize = 150) {
   return promise;
 }
 
-async function transceive_rawdata(data, respType, chunkSize = 150) {
-  let process = function([recv_type, recv_data]) {
-    if (recv_type == 219)
+async function niimbotTransceiveRawData(data, respType, chunkSize = 150) {
+  let process = function([recvType, recvData]) {
+    if (recvType == 219)
       throw "error";
-    else if (recv_type == 0)
+    else if (recvType == 0)
       throw "not implemented";
-    else if (recv_type == respType)
-      return recv_data;
+    else if (recvType == respType)
+      return recvData;
     else
-      return receive_packet().then(process);
+      return niimbotReceivePacket().then(process);
   };
 
-  let recv = receive_packet().then(process);
-  let send = send_rawdata(data, chunkSize);
+  let recv = niimbotReceivePacket().then(process);
+  let send = niimbotSendRawData(data, chunkSize);
 
   return Promise.all([send, recv]).then(values => values[1]);
 }
 
-async function transceive_packet(type, data, recv_offset = 1) {
-  return transceive_rawdata(to_packet(type, data), type + recv_offset);
+async function niimbotTransceivePacket(type, data, recv_offset = 1) {
+  return niimbotTransceiveRawData(niimbotToPacket(type, data), type + recv_offset);
 }
 
-async function connect() {
-  return await navigator.bluetooth.requestDevice(options).then(device => {
+async function niimbotConnect() {
+  return await navigator.bluetooth.requestDevice(bluetoothOptions).then(device => {
     log(`Name: ${device.name}`);
     bluetooth["device"] = device;
 
@@ -168,7 +168,7 @@ async function connect() {
   });
 }
 
-function disconnect() {
+function niimbotDisconnect() {
   if (bluetooth["rx"]) {
     bluetooth["rx"].stopNotifications();
   }
