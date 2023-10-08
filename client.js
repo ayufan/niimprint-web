@@ -15,38 +15,6 @@ let options = {
 
 var bluetooth = {};
 
-function to_string(data) {
-  if (typeof data === 'string' || data instanceof String)
-    return data;
-  else if (data instanceof Error)
-    return data.toString();
-  else
-    return JSON.stringify(data);
-}
-
-function log(data) {
-  console.log("LOG: " + to_string(data));
-  const el = document.getElementById('log');
-  if (el) {
-    el.textContent = to_string(data) + "\n" + el.textContent;
-  }
-}
-
-function buffer_to_array(buffer) {
-  let a = [];
-  for (let i = 0; i < buffer.byteLength; i++)
-    a.push(buffer.getUint8(i));
-  return a;
-}
-
-function buffer_to_hex(array, join='') {
-  return array.map(el => ('00' + el.toString(16)).slice(-2)).join(join);
-}
-
-function buffer_to_string(array) {
-  return array.map(el => String.fromCharCode(el)).join('');
-}
-
 function to_packet(type, data) {
   let packet = [type, data.length].concat(data);
 

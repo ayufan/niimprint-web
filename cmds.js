@@ -29,6 +29,10 @@ function mm_to_px(x) {
     return Math.ceil(x / 25.4 * 203);
 }
 
+function px_to_mm(x) {
+  return Math.floor(x / 203 * 25.4);
+}
+
 async function get_rfid() {
   return transceive_packet(CMD_GET_RFID, [1]).then(data => {
     if (data[0] == 0)
@@ -153,6 +157,8 @@ async function allow_print_clear() {
 }
 
 async function set_dimension(w, h) {
+  console.assert(1 <= w && w <= mm_to_px(15));
+  console.assert(1 <= h && h <= mm_to_px(75));
   return transceive_packet(CMD_SET_DIMENSION, [
     Math.floor(w / 256), w % 256,
     Math.floor(h / 256), h % 256
@@ -230,6 +236,7 @@ async function wait_for_quantity(q) {
 }
 
 async function print_image(w, h, data, q = 1, type = 1, density = 2) {
+  log(`Printing image: ${w}x${h}, ${q}q, ${type} type, ${density} density`);
   return set_label_type(type)
     .then(_ => set_label_type(type)) // 1-3
     .then(_ => set_label_density(density)) // 1-3
@@ -241,5 +248,6 @@ async function print_image(w, h, data, q = 1, type = 1, density = 2) {
     .then(_ => send_image(w, h, data))
     .then(_ => end_page_print())
     .then(_ => wait_for_quantity(q))
-    .then(_ => end_print());
+    .then(_ => end_print())
+    .then(_ => `Printed ${w}x${h}, ${q}q, ${type} type, ${density} density`);
 }

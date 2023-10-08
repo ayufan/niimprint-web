@@ -1,11 +1,16 @@
 <html>
 <head>
+  <script src="helpers.js"></script>
   <script src="client.js"></script>
   <script src="cmds.js"></script>
+  <script src="canvas.js"></script>
   <style>
     .on_connected {
     }
     .disabled {
+    }
+    .canvas {
+      border: 2px solid black;
     }
   </style>
 </head>
@@ -16,7 +21,7 @@
     <button id="get_rfid" class="on_connected">Get RFID</button>
     <button id="get_heartbeat" class="on_connected">Get Heartbeat</button>
     <button id="get_info" class="on_connected">Get INFO</button>
-    <button id="test_print" class="on_connected">Test Print</button>
+    <button id="print" class="on_connected">Print</button>
     <button id="clear_log">Clear Log</button>
   </p>
   <hr>
@@ -29,21 +34,36 @@
     <textarea id="content" cols="100" rows="10"></textarea>
   </p>
   <hr>
+  <h3>
+    Canvas:
+    <label id="canvas_label"></label>
+    <select id="canvas_size">
+      <option value="12x30">12x30</option>
+      <option value="15x30" selected>15x30</option>
+      <option value="15x50">15x50</option>
+    </select>
+    <select id="canvas_line_width">
+      <option value="1">1</option>
+      <option value="3">3</option>
+      <option value="5" selected>5</option>
+      <option value="8">8</option>
+      <option value="11">11</option>
+      <option value="13"="selected">13</option>
+      <option value="15">15</option>
+    </select>
+    <button id="clear_canvas">Clear</button>
+    <button id="draw_pattern">Pattern</button>
+    <button id="dump_canvas">Dump</button>
+  </h3>
+  <p>
+    <canvas id="canvas" width="0" height="0" class="canvas"></canvas>
+  </p>
+  <hr>
   <h3>Log:</h3>
   <p>
     <textarea id="log" cols="100" rows="10"></textarea>
   </p>
   <script>
-    function set_content(data, id = 'content') {
-      log(data);
-      document.getElementById(id).textContent = to_string(data);
-    }
-    async function async_content(promise) {
-      promise
-        .then(data => set_content(data))
-        .catch(error => set_content(error));
-    }
-
     function set_connected_class(is_connected) {
       for (let el of document.getElementsByClassName("on_connected")) {
         el.disabled = !is_connected;
@@ -54,7 +74,21 @@
       }
     }
 
-    set_connected_class(false);
+    document.addEventListener("DOMContentLoaded", _ => set_connected_class(false));
+
+    function set_canvas_size() {
+      const [w_mm, h_mm] = document.getElementById('canvas_size').value.split('x');
+
+      const canvas = document.getElementById('canvas');
+      canvas.width = mm_to_px(parseInt(h_mm));
+      canvas.height = mm_to_px(parseInt(w_mm));
+
+      const canvas_label = document.getElementById('canvas_label');
+      canvas_label.textContent = `${canvas.width}x${canvas.height}`;
+    }
+
+    document.addEventListener("DOMContentLoaded", set_canvas_size);
+    document.getElementById('canvas_size').addEventListener("change", set_canvas_size);
 
     document.getElementById('connect').addEventListener('click', async function() {
       disconnect();
@@ -83,17 +117,56 @@
     document.getElementById('get_info').addEventListener('click', async function() {
       async_content(get_info());
     });
-    document.getElementById('test_print').addEventListener('click', async function() {
-      const w = mm_to_px(15);
-      const h = mm_to_px(30);
-      const data = new Uint8Array(w*h);
-      for (let x = 0; x < w; x++) {
-        for (let y = 0; y < h; y++) {
-          data[y*w+x] = (Math.ceil(x/16) % 2) ^ (Math.ceil(y/16) % 2);
+    document.getElementById('clear_canvas').addEventListener('click', function() {
+      const canvas = document.getElementById('canvas');
+      const context = canvas.getContext('2d');
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.clearRect(0, 0, canvas.width, canvas.height);
+    });
+    document.getElementById('draw_pattern').addEventListener('click', async function() {
+      const canvas = document.getElementById('canvas');
+      const context = canvas.getContext("2d");
+      const image = context.getImageData(0, 0, canvas.width, canvas.height);
+
+      context.clearRect(0, 0, canvas.width, canvas.height);
+
+      var off = 0;
+
+      for (let y = 0; y < image.height; y++) {
+        for (let x = 0; x < image.width; x++, off += 4) {
+          var color = (Math.floor(x/16) % 2) ^ (Math.floor(y/16) % 2);
+          image.data[off] = color ? 255 : 0;
+          image.data[off + 1] = color ? 255 : 0;
+          image.data[off + 2] = color ? 255 : 0;
+          image.data[off + 3] = 255;
         }
       }
 
-      async_content(print_image(w, h, data));
+      context.putImageData(image, 0, 0);
+    });
+    document.getElementById('dump_canvas').addEventListener('click', function() {
+      const canvas = document.getElementById('canvas');
+      const context = canvas.getContext("2d");
+      const image = context.getImageData(0, 0, canvas.width, canvas.height);
+
+      var off = 0;
+
+      for (let y = 0; y < image.height; y++) {
+        let line = [];
+        for (let x = 0; x < image.width; x++, off += 4) {
+          const gray = (image.data[off] + image.data[off+1] + image.data[off+2]) / 3;
+          const alpha = (image.data[off+3]);
+          line.push(gray > 128 || alpha < 128 ? 1 : 0);
+        }
+        log(`Y${y}: ${line.join('')}`);
+      }
+    });
+    document.getElementById('print').addEventListener('click', async function() {
+      const canvas = document.getElementById('canvas');
+      const context = canvas.getContext("2d");
+      const image = context.getImageData(0, 0, canvas.width, canvas.height);
+
+      async_content(print_image(canvas.width, canvas.height, null));
     });
     document.getElementById('clear_log').addEventListener('click', async function() {
       document.getElementById('log').textContent = '';
