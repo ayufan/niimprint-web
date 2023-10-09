@@ -21,8 +21,6 @@
     <button id="get_rfid" class="on_connected">Get RFID</button>
     <button id="get_heartbeat" class="on_connected">Get Heartbeat</button>
     <button id="get_info" class="on_connected">Get INFO</button>
-    <button id="print" class="on_connected">Print</button>
-    <button id="clear_log">Clear Log</button>
   </p>
   <hr>
   <p>
@@ -53,14 +51,17 @@
     </select>
     <button id="clear_canvas">Clear</button>
     <button id="draw_pattern">Pattern</button>
-    <button id="dump_canvas">Dump</button>
     <button id="save_canvas">Save</button>
+    <button id="print" class="on_connected">Print</button>
   </h3>
   <p>
     <canvas id="canvas" width="0" height="0" class="canvas"></canvas>
   </p>
   <hr>
-  <h3>Log:</h3>
+  <h3>
+    Log:
+    <button id="clear_log">Clear</button>
+  </h3>
   <p>
     <textarea id="log" cols="100" rows="10"></textarea>
   </p>
@@ -171,14 +172,6 @@
 
       return image_data;
     }
-    document.getElementById('dump_canvas').addEventListener('click', function() {
-      const canvas = document.getElementById('canvas');
-
-      for (let y = 0; y < canvas.height; y++) {
-        let line = canvasGetImageData(canvas, 0, y, canvas.width, 1);
-        log(`Y${y}`, line.join(''));
-      }
-    });
     document.getElementById('save_canvas').addEventListener('click', function() {
       const canvas = document.getElementById('canvas');
       localStorage.setItem("canvas", canvas.toDataURL());
