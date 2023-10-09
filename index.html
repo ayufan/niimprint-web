@@ -71,6 +71,8 @@
     <a href="https://github.com/ayufan/niimprint-web">github.com/ayufan/niimprint-web</a>.
     Adopted from <a href="https://github.com/kjy00302/niimprint">github.com/kjy00302/niimprint</a></p>
   <script>
+    const canvasFlipXY = true;
+
     function updateConnected(deviceName = null) {
       for (let el of document.getElementsByClassName("on_connected")) {
         el.disabled = !deviceName;
@@ -92,8 +94,14 @@
       const [w_mm, h_mm] = document.getElementById('canvas_size').value.split('x');
 
       const canvas = document.getElementById('canvas');
-      canvas.width = 96; // niimbotMmToPx(parseInt(h_mm));
-      canvas.height = niimbotMmToPx(parseInt(h_mm)); // 96; // niimbotMmToPx(parseInt(w_mm));
+
+      if (canvasFlipXY) {
+        canvas.width = niimbotMmToPx(parseInt(h_mm));
+        canvas.height = 96;
+      } else {
+        canvas.width = 96;
+        canvas.height = niimbotMmToPx(parseInt(h_mm));
+      }
 
       const canvas_label = document.getElementById('canvas_label');
       canvas_label.textContent = `${canvas.width}x${canvas.height}`;
@@ -154,23 +162,35 @@
 
       context.putImageData(image, 0, 0);
     });
-    function canvasGetImageData(canvas, x, y, w, h) {
-      let image_data = [];
-
+    function canvasGetImageData(canvas, x, y, w, h, flipXY = false) {
       const context = canvas.getContext("2d");
       const image = context.getImageData(x, y, w, h);
 
-      var off = 0;
+      let data = [];
 
-      for (let y = 0; y < image.height; y++) {
-        for (let x = 0; x < image.width; x++, off += 4) {
-          const gray = (image.data[off] + image.data[off+1] + image.data[off+2]) / 3;
-          const alpha = (image.data[off+3]);
-          image_data.push(gray > 128 || alpha < 128 ? 0 : 1);
+      if (flipXY) {
+        for (let x = 0; x < image.width; x++) {
+          for (let y = image.height; y-- > 0; ) {
+            var off = (y * image.width + x) * 4;
+            const gray = (image.data[off] + image.data[off+1] + image.data[off+2]) / 3;
+            const alpha = (image.data[off+3]);
+            data.push(gray > 128 || alpha < 128 ? 0 : 1);
+          }
         }
-      }
 
-      return image_data;
+        return [data, image.height, image.width];
+      } else {
+        for (let y = 0; y < image.height; y++) {
+          for (let x = 0; x < image.width; x++) {
+            var off = (y * image.width + x) * 4;
+            const gray = (image.data[off] + image.data[off+1] + image.data[off+2]) / 3;
+            const alpha = (image.data[off+3]);
+            data.push(gray > 128 || alpha < 128 ? 0 : 1);
+          }
+        }
+
+        return [data, image.width, image.height];
+      }
     }
     document.getElementById('save_canvas').addEventListener('click', function() {
       const canvas = document.getElementById('canvas');
@@ -179,8 +199,8 @@
     document.getElementById('print').addEventListener('click', async function() {
       const canvas = document.getElementById('canvas');
 
-      let image_data = canvasGetImageData(canvas, 0, 0, canvas.width, canvas.height);
-      setAsyncResponse(niimbotPrintImage(canvas.width, canvas.height, image_data), "PRINT");
+      let [data, width, height] = canvasGetImageData(canvas, 0, 0, canvas.width, canvas.height, canvasFlipXY);
+      setAsyncResponse(niimbotPrintImage(width, height, data), "PRINT");
     });
     document.getElementById('clear_log').addEventListener('click', async function() {
       document.getElementById('log').textContent = '';
