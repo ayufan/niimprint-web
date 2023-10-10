@@ -36,9 +36,9 @@
     Canvas:
     <label id="canvas_label"></label>
     <select id="canvas_size">
-      <option value="12x30">12x30</option>
-      <option value="12x30" selected>15x30</option>
-      <option value="12x50">15x50</option>
+      <option value="12x30x1">12x30</option>
+      <option value="12x30x1" selected>15x30</option>
+      <option value="12x50x1">15x50</option>
     </select>
     <select id="canvas_line_width">
       <option value="1">1</option>
@@ -91,20 +91,22 @@
     document.addEventListener("DOMContentLoaded", _ => updateConnected());
 
     function updateCanvasSize() {
-      const [w_mm, h_mm] = document.getElementById('canvas_size').value.split('x');
+      const [w_mm, h_mm, t] = document.getElementById('canvas_size').value.split('x');
 
       const canvas = document.getElementById('canvas');
 
       if (canvasFlipXY) {
         canvas.width = niimbotMmToPx(parseInt(h_mm));
         canvas.height = niimbotMmToPx(parseInt(w_mm));
+        canvas.labelType = parseInt(t);
       } else {
         canvas.width = niimbotMmToPx(parseInt(w_mm));
         canvas.height = niimbotMmToPx(parseInt(h_mm));
+        canvas.labelType = parseInt(t);
       }
 
       const canvas_label = document.getElementById('canvas_label');
-      canvas_label.textContent = `${canvas.width}x${canvas.height}`;
+      canvas_label.textContent = `${canvas.width}x${canvas.height}T${T}`;
     }
 
     document.addEventListener("DOMContentLoaded", updateCanvasSize);
@@ -198,9 +200,10 @@
     });
     document.getElementById('print').addEventListener('click', async function() {
       const canvas = document.getElementById('canvas');
+      const labelType = canvas.labelType || 1;
 
       let [data, width, height] = canvasGetImageData(canvas, 0, 0, canvas.width, canvas.height, canvasFlipXY);
-      setAsyncResponse(niimbotPrintImage(width, height, data), "PRINT");
+      setAsyncResponse(niimbotPrintImage(width, height, data, 1, labelType), "PRINT");
     });
     document.getElementById('clear_log').addEventListener('click', async function() {
       document.getElementById('log').textContent = '';
