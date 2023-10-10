@@ -37,8 +37,8 @@
     <label id="canvas_label"></label>
     <select id="canvas_size">
       <option value="12x30">12x30</option>
-      <option value="15x30" selected>15x30</option>
-      <option value="15x50">15x50</option>
+      <option value="12x30" selected>15x30</option>
+      <option value="12x50">15x50</option>
     </select>
     <select id="canvas_line_width">
       <option value="1">1</option>
@@ -46,7 +46,7 @@
       <option value="5" selected>5</option>
       <option value="8">8</option>
       <option value="11">11</option>
-      <option value="13"="selected">13</option>
+      <option value="13">13</option>
       <option value="15">15</option>
     </select>
     <button id="clear_canvas">Clear</button>
@@ -97,9 +97,9 @@
 
       if (canvasFlipXY) {
         canvas.width = niimbotMmToPx(parseInt(h_mm));
-        canvas.height = 96;
+        canvas.height = niimbotMmToPx(parseInt(w_mm));
       } else {
-        canvas.width = 96;
+        canvas.width = niimbotMmToPx(parseInt(w_mm));
         canvas.height = niimbotMmToPx(parseInt(h_mm));
       }
 

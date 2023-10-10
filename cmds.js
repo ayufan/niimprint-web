@@ -192,6 +192,10 @@ function niimbotPacketClear(y, n = 1) {
 }
 
 function niimbotPacketImageData(y, w, data, n = 1) {
+  if (w != 96) {
+    throw "error: width has to be 96";
+  }
+
   let buffer = [];
   buffer.push(...ushortToByteArray(y));
 
